@@ -11,3 +11,8 @@ It includes various improvements, optimizations, and additional features while m
 3. Launch Minecraft with Forge 1.8.9.
 
 That's it—Remodeled Raven bS is now ready to use.
+
+## Credits
+
+* **Stranger** — Creator of the original Raven bS.
+* **OpenMyau** — The Scaffold implementation is based on OpenMyau's source code.
