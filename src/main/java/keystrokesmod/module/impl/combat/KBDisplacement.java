@@ -132,8 +132,7 @@ public class KBDisplacement extends Module {
 
     @Override
     public String getInfo() {
-        int ms = (int) Math.round(delay.getInput());
-        return ms + "ms";
+        return null;
     }
 
     @Override
