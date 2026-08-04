@@ -8,6 +8,8 @@ public class C03 extends CPacket {
     public float yaw;
     public float pitch;
     public boolean ground;
+    public boolean moving;
+    public boolean rotating;
 
     public C03(C03PacketPlayer packet, byte f1, byte f2, byte f3, byte f4, byte f5, byte f6) { // goofy asf but cba to
         super(packet);
@@ -19,6 +21,8 @@ public class C03 extends CPacket {
             this.pitch = packet.getPitch();
         }
         this.ground = packet.isOnGround();
+        this.moving = packet.isMoving();
+        this.rotating = packet.getRotating();
     }
 
     public C03(boolean ground) {

@@ -1,4 +1,4 @@
-package keystrokesmod.module.impl.combat;
+package keystrokesmod.module.impl.network;
 
 import keystrokesmod.Raven;
 import keystrokesmod.event.AttackEvent;
@@ -13,6 +13,7 @@ import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.ColorSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.SliderSetting;
+import keystrokesmod.module.impl.combat.Autoblock;
 import keystrokesmod.utility.CombatTargeting;
 import keystrokesmod.utility.RenderUtils;
 import keystrokesmod.utility.RotationUtils;
@@ -60,7 +61,7 @@ public class LagRange extends Module {
     private long indicatorInterpStartMs;
 
     public LagRange() {
-        super("Lag Range", category.combat);
+        super("Lag Range", category.network);
         this.registerSetting(range = new SliderSetting("Range", 6.0, 3.0, 10.0, 0.1));
         this.registerSetting(maximumDelay = new SliderSetting("Maximum delay", "ms", 200, 50, 1000, 1));
         this.registerSetting(new DescriptionSetting("Flush conditions"));

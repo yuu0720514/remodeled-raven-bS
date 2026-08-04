@@ -81,7 +81,7 @@ public class BlockIn extends Module {
 
     public BlockIn() {
         super("Block In", category.player);
-        this.registerSetting(speed = new SliderSetting("Speed", 10, 1, 30, 1));
+        this.registerSetting(speed = new SliderSetting("Speed", 15, 1, 50, 1));
         this.registerSetting(randomization = new SliderSetting("Randomization", "%", 10, 0, 100, 1));
         this.registerSetting(rotationTol = new SliderSetting("Rotation Tolerance", "\u00B0", 25, 20, 100, 1));
         this.registerSetting(selectKeybind = new KeySetting("Select Keybind", 0));
@@ -242,25 +242,12 @@ public class BlockIn extends Module {
         ScaledResolution sr = new ScaledResolution(mc);
         float cx = sr.getScaledWidth() / 2f - 1f;
         float cy = sr.getScaledHeight() / 2f;
-        float radius = 10f;
-        float thickness = 3f;
 
-        RenderUtils.draw2DCircle(cx, cy, radius, 100, thickness, 0f, 0f, 0f, 0.5f);
+        String progressText = (int) (circleProgress * 100) + "%";
+        float textWidth = mc.fontRendererObj.getStringWidth(progressText);
+        float textHeight = mc.fontRendererObj.FONT_HEIGHT;
 
-        if (circleProgress >= 0.999f) {
-            RenderUtils.draw2DCircle(cx, cy, radius, 100, thickness, 0f, 1f, 0f, 1f);
-            return;
-        }
-
-        float startAngle = 90f;
-        float endAngle = startAngle + circleProgress * 360f + 0.5f;
-
-        float ratio = Math.max(0f, Math.min(1f, circleProgress));
-        int r = (int) ((1f - ratio) * 255f + 0.5f);
-        int g = (int) (ratio * 255f + 0.5f);
-        int color = ((255 & 0xFF) << 24) | ((r & 0xFF) << 16) | ((g & 0xFF) << 8);
-
-        RenderUtils.draw2DCircleArc(cx, cy, radius, startAngle, endAngle, thickness, color);
+        mc.fontRendererObj.drawStringWithShadow(progressText, cx - (textWidth / 2f), cy - (textHeight / 2f), 0xFFFFFFFF);
     }
 
 

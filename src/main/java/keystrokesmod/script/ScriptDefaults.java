@@ -81,6 +81,10 @@ public class ScriptDefaults {
             return mc.thePlayer.capabilities.allowFlying;
         }
 
+        public static long nanoTime() {
+            return System.nanoTime();
+        }
+
         public static void removePotionEffect(int id) {
             if (mc.thePlayer == null) {
                 return;
@@ -93,7 +97,7 @@ public class ScriptDefaults {
         }
 
         public static String getUser() {
-            return "mic";
+            return mc.thePlayer.getName();
         }
 
         public static void addEnemy(String username) {
@@ -317,6 +321,14 @@ public class ScriptDefaults {
 
         public static boolean isRiding() {
             return mc.thePlayer.isRiding();
+        }
+
+        public static void setRidingEntity(Entity entity) {
+            if (entity == null) {
+                mc.thePlayer.ridingEntity = null;
+                return;
+            }
+            mc.thePlayer.ridingEntity = entity.entity;
         }
 
         public static Vec3 getMotion() {
@@ -567,6 +579,11 @@ public class ScriptDefaults {
             mc.thePlayer.swingItem();
         }
 
+        public static void swingReset() {
+            mc.thePlayer.swingItem();
+            mc.getItemRenderer().resetEquippedProgress();
+        }
+
         public static long time() {
             return System.currentTimeMillis();
         }
@@ -581,6 +598,18 @@ public class ScriptDefaults {
     }
 
     public static class world {
+        public static boolean exists() {
+            return mc.theWorld != null;
+        }
+
+        public static void playSound(String name, float volume, float pitch, double x, double y, double z) {
+            mc.theWorld.playSound(x, y, z, name, volume, pitch, false);
+        }
+
+        public static boolean isValidEntity(Entity entity) {
+            return mc.theWorld != null && mc.theWorld.loadedEntityList.contains(entity);
+        }
+
         public static Block getBlockAt(int x, int y, int z) {
             IBlockState state = BlockUtils.getBlockState(new BlockPos(x, y, z));
             if (state == null) {
@@ -937,6 +966,32 @@ public class ScriptDefaults {
             return sliderValue;
         }
 
+        public double getSliderMin(String moduleName, String name) {
+            SliderSetting setting = ((SliderSetting) getSetting(getModule(moduleName), name));
+            if (setting == null) {
+                return 0;
+            }
+            return setting.getMin();
+        }
+
+        public double getSliderMax(String moduleName, String name) {
+            SliderSetting setting = ((SliderSetting) getSetting(getModule(moduleName), name));
+            if (setting == null) {
+                return 0;
+            }
+            return setting.getMax();
+        }
+
+        public String getSliderString(String moduleName, String name) {
+            SliderSetting setting = ((SliderSetting) getSetting(getModule(moduleName), name));
+            if (setting == null || !setting.isString) {
+                return "";
+            }
+            int idx = (int) Math.round(setting.getInput());
+            idx = Math.max(0, Math.min(idx, setting.getOptions().length - 1));
+            return setting.getOptions()[idx];
+        }
+
         public boolean getKeyPressed(String moduleName, String name) {
             KeySetting setting = ((KeySetting) getSetting(getModule(moduleName), name));
             if (setting == null) {
@@ -997,6 +1052,18 @@ public class ScriptDefaults {
             GlStateManager.color(r, g, b, a);
         }
 
+        public static void color(double r, double g, double b, double a) {
+            GlStateManager.color((float) r, (float) g, (float) b, (float) a);
+        }
+
+        public static void color(int r, int g, int b, int a) {
+            if (r <= 1 && g <= 1 && b <= 1 && a <= 1) {
+                GlStateManager.color(r, g, b, a);
+                return;
+            }
+            GlStateManager.color(r / 255.0F, g / 255.0F, b / 255.0F, a / 255.0F);
+        }
+
         public static void cull(boolean cull) {
             if (cull) {
                 GlStateManager.enableCull();
@@ -1020,7 +1087,7 @@ public class ScriptDefaults {
         }
 
         public static void disable(int cap) {
-            GL11.glDisable(cap);
+            setCapability(cap, false);
         }
 
         public static void disableItemLighting() {
@@ -1028,7 +1095,7 @@ public class ScriptDefaults {
         }
 
         public static void enable(int cap) {
-            GL11.glEnable(cap);
+            setCapability(cap, true);
         }
 
         public static void enableItemLighting(boolean gui) {
@@ -1042,6 +1109,7 @@ public class ScriptDefaults {
 
         public static void resetColor() {
             GlStateManager.resetColor();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         }
 
         public static void end() {
@@ -1065,8 +1133,16 @@ public class ScriptDefaults {
             GL11.glLineWidth(width);
         }
 
+        public static void lineWidth(double width) {
+            GL11.glLineWidth((float) width);
+        }
+
         public static void normal(float x, float y, float z) {
             GL11.glNormal3f(x, y, z);
+        }
+
+        public static void normal(double x, double y, double z) {
+            GL11.glNormal3d(x, y, z);
         }
 
         public static void pop() {
@@ -1079,6 +1155,10 @@ public class ScriptDefaults {
 
         public static void rotate(float angle, float x, float y, float z) {
             GL11.glRotatef(angle, x, y, z);
+        }
+
+        public static void rotate(double angle, double x, double y, double z) {
+            GL11.glRotated(angle, x, y, z);
         }
 
         public static void scale(float x, float y, float z) {
@@ -1106,6 +1186,10 @@ public class ScriptDefaults {
             GL11.glTranslatef(x, y, z);
         }
 
+        public static void translate(double x, double y, double z) {
+            GL11.glTranslated(x, y, z);
+        }
+
         public static void vertex2(float x, float y) {
             GL11.glVertex2f(x, y);
         }
@@ -1114,12 +1198,82 @@ public class ScriptDefaults {
             GL11.glVertex3f(x, y, z);
         }
 
+        public static void vertex3(double x, double y, double z) {
+            GL11.glVertex3d(x, y, z);
+        }
+
         private static void setGLEnable(int cap, boolean enable) {
             if (enable) {
                 GL11.glEnable(cap);
             }
             else {
                 GL11.glDisable(cap);
+            }
+        }
+
+        private static void setCapability(int cap, boolean enable) {
+            switch (cap) {
+                case GL11.GL_ALPHA_TEST:
+                    alpha(enable);
+                    break;
+                case GL11.GL_BLEND:
+                    blend(enable);
+                    break;
+                case GL11.GL_CULL_FACE:
+                    cull(enable);
+                    break;
+                case GL11.GL_DEPTH_TEST:
+                    depth(enable);
+                    break;
+                case GL11.GL_FOG:
+                    if (enable) {
+                        GlStateManager.enableFog();
+                    }
+                    else {
+                        GlStateManager.disableFog();
+                    }
+                    break;
+                case GL11.GL_LIGHTING:
+                    lighting(enable);
+                    break;
+                case GL11.GL_COLOR_LOGIC_OP:
+                    if (enable) {
+                        GlStateManager.enableColorLogic();
+                    }
+                    else {
+                        GlStateManager.disableColorLogic();
+                    }
+                    break;
+                case GL11.GL_NORMALIZE:
+                    if (enable) {
+                        GlStateManager.enableNormalize();
+                    }
+                    else {
+                        GlStateManager.disableNormalize();
+                    }
+                    break;
+                case GL11.GL_POLYGON_OFFSET_FILL:
+                    if (enable) {
+                        GlStateManager.enablePolygonOffset();
+                    }
+                    else {
+                        GlStateManager.disablePolygonOffset();
+                    }
+                    break;
+                case 32826:
+                    if (enable) {
+                        GlStateManager.enableRescaleNormal();
+                    }
+                    else {
+                        GlStateManager.disableRescaleNormal();
+                    }
+                    break;
+                case GL11.GL_TEXTURE_2D:
+                    texture2d(enable);
+                    break;
+                default:
+                    setGLEnable(cap, enable);
+                    break;
             }
         }
     }
@@ -1345,8 +1499,11 @@ public class ScriptDefaults {
         }
 
         public static Vec3 getPosition() {
-            net.minecraft.util.Vec3 position = Utils.getCameraPos(((IAccessorMinecraft) mc).getTimer().renderPartialTicks);
-            return new Vec3(position);
+            return new Vec3(mc.getRenderManager().viewerPosX,  mc.getRenderManager().viewerPosY, mc.getRenderManager().viewerPosZ);
+        }
+
+        public static void text(String text, float x, float y, float scale, int color, boolean shadow) {
+            text2d(text, x, y, scale, color, shadow);
         }
 
         public static void text2d(String text, float x, float y, float scale, int color, boolean shadow) {
@@ -1689,6 +1846,10 @@ public class ScriptDefaults {
                 return keyBind.getKeyCode();
             }
             return -1;
+        }
+
+        public static int getKeycode(final String key) {
+            return getKeyCode(key);
         }
 
         public static int getKeyIndex(String key) {

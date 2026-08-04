@@ -192,7 +192,7 @@ public class Script {
         fileCodeContents.append("import keystrokesmod.script.packet.clientbound.*;\n");
         fileCodeContents.append("import keystrokesmod.script.packet.serverbound.*;\n");
         String name = Utils.extractFileName(this.name);
-        this.codeStr = fileCodeContents + "public class " + this.scriptName + " extends " + ScriptDefaults.class.getName() + " {public static final " + ScriptDefaults.modules.class.getName().replace("$", ".") + " modules = new " + ScriptDefaults.modules.class.getName().replace("$", ".") + "(\"" + name + "\");public static final String scriptName = \"" + name + "\";\n" + code + "\n}";
+        this.codeStr = fileCodeContents + "@SuppressWarnings(\"unchecked\")public class " + this.scriptName + " extends " + ScriptDefaults.class.getName() + " {public static final " + ScriptDefaults.modules.class.getName().replace("$", ".") + " modules = new " + ScriptDefaults.modules.class.getName().replace("$", ".") + "(\"" + name + "\");public static final String scriptName = \"" + name + "\";\n" + code + "\n}";
         STARTING_LINE += 4;
     }
 

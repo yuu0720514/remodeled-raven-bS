@@ -2,6 +2,7 @@ package keystrokesmod.module.impl.player;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import keystrokesmod.event.ClientRotationEvent;
@@ -17,6 +18,8 @@ import keystrokesmod.utility.RotationUtils;
 import keystrokesmod.utility.Utils;
 import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.entity.Entity;
 import net.minecraft.init.Blocks;
@@ -30,15 +33,19 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Vec3;
 import net.minecraftforge.client.event.MouseEvent;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.GL11;
 
 public class Clutch
-extends Module {
+        extends Module {
     private static final Map<String, Integer> BLOCK_SCORE = new HashMap<String, Integer>();
     private static final double HALF_WIDTH = 0.3;
     private static final double[][] CORNERS = new double[][]{{-0.3, -0.3}, {0.3, -0.3}, {-0.3, 0.3}, {0.3, 0.3}};
+    private static final long PLACE_ANIMATION_DURATION_MS = 450L; // アニメーションをより際立たせるため少し短めに調整（任意）
+    private final List<PlacedBlockAnim> placeAnimations = new ArrayList<PlacedBlockAnim>();
     private final SliderSetting reach = new SliderSetting("Reach", " blocks", 4.5, 0.5, 4.5, 0.1);
     private final SliderSetting speed;
     private final SliderSetting snapbackSpeed;
@@ -113,6 +120,7 @@ extends Module {
         this.autoClutchActive = false;
         this.autoClutchChecking = false;
         this.autoClutchLandedGuard = false;
+        this.placeAnimations.clear();
     }
 
     @SubscribeEvent
@@ -170,13 +178,68 @@ extends Module {
             return;
         }
         this.placeQueued = false;
-        if (this.placeAtBlock != null && this.hitSide != null && this.hitVec != null && Clutch.mc.playerController.onPlayerRightClick(Clutch.mc.thePlayer, Clutch.mc.theWorld, Clutch.mc.thePlayer.getHeldItem(), this.placeAtBlock, this.hitSide, this.hitVec)) {
-            if (this.hitSide != EnumFacing.UP) {
-                ++this.clutchBlocksPlaced;
+        if (this.placeAtBlock != null && this.hitSide != null && this.hitVec != null) {
+            if (Clutch.mc.playerController.onPlayerRightClick(Clutch.mc.thePlayer, Clutch.mc.theWorld, Clutch.mc.thePlayer.getHeldItem(), this.placeAtBlock, this.hitSide, this.hitVec)) {
+                if (this.hitSide != EnumFacing.UP) {
+                    ++this.clutchBlocksPlaced;
+                }
+                BlockPos actualPlacedPos = this.placeAtBlock.offset(this.hitSide);
+
+                this.lastPlaced = this.placeAtBlock;
+                this.placeAnimations.add(new PlacedBlockAnim(actualPlacedPos, System.currentTimeMillis()));
+                Clutch.mc.thePlayer.swingItem();
             }
-            this.lastPlaced = this.placeAtBlock;
-            Clutch.mc.thePlayer.swingItem();
         }
+    }
+
+    @SubscribeEvent
+    public void onRenderWorldLast(RenderWorldLastEvent e) {
+        if (this.placeAnimations.isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Iterator<PlacedBlockAnim> it = this.placeAnimations.iterator();
+        while (it.hasNext()) {
+            PlacedBlockAnim anim = it.next();
+            long elapsed = now - anim.placedAt;
+            if (elapsed >= PLACE_ANIMATION_DURATION_MS) {
+                it.remove();
+                continue;
+            }
+            float progress = (float) elapsed / (float) PLACE_ANIMATION_DURATION_MS;
+            if (progress < 0.0f) progress = 0.0f;
+            if (progress > 1.0f) progress = 1.0f;
+            this.renderPlaceAnimation(anim.pos, progress, e.partialTicks);
+        }
+    }
+
+    private void renderPlaceAnimation(BlockPos pos, float progress, float partialTicks) {
+        double viewX = Clutch.mc.getRenderManager().viewerPosX;
+        double viewY = Clutch.mc.getRenderManager().viewerPosY;
+        double viewZ = Clutch.mc.getRenderManager().viewerPosZ;
+        float alpha = 1.0f - progress;
+        double offset = 0.002;
+        AxisAlignedBB box = new AxisAlignedBB(
+                pos.getX() - offset - viewX, pos.getY() - offset - viewY, pos.getZ() - offset - viewZ,
+                pos.getX() + 1.0 + offset - viewX, pos.getY() + 1.0 + offset - viewY, pos.getZ() + 1.0 + offset - viewZ);
+
+        GlStateManager.pushMatrix();
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableLighting();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+        GL11.glLineWidth(3.0f);
+        GlStateManager.disableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.color(1.0f, 1.0f, 1.0f, alpha);
+        RenderGlobal.drawSelectionBoundingBox(box);
+
+        GlStateManager.depthMask(true);
+        GlStateManager.enableDepth();
+        GlStateManager.disableBlend();
+        GlStateManager.enableTexture2D();
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
+        GlStateManager.popMatrix();
     }
 
     @SubscribeEvent(priority=EventPriority.HIGHEST)
@@ -683,5 +746,14 @@ extends Module {
             this.pos = pos;
         }
     }
-}
 
+    private static class PlacedBlockAnim {
+        final BlockPos pos;
+        final long placedAt;
+
+        PlacedBlockAnim(BlockPos pos, long placedAt) {
+            this.pos = pos;
+            this.placedAt = placedAt;
+        }
+    }
+}

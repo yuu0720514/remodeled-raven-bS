@@ -181,6 +181,24 @@ public class Entity {
         return entity.isBurning();
     }
 
+    public int getStackSize() {
+        if (entity instanceof EntityItem) {
+            net.minecraft.item.ItemStack item = ((EntityItem) entity).getEntityItem();
+            if (item == null) {
+                return -1;
+            }
+            return item.stackSize;
+        }
+        else if (!(entity instanceof EntityLivingBase)) {
+            return -1;
+        }
+        net.minecraft.item.ItemStack stack = ((EntityLivingBase) entity).getHeldItem();
+        if (stack == null) {
+            return -1;
+        }
+        return stack.stackSize;
+    }
+
     public ItemStack getHeldItem() {
         if (entity instanceof EntityItem) {
             net.minecraft.item.ItemStack item = ((EntityItem) entity).getEntityItem();
@@ -292,6 +310,14 @@ public class Entity {
 
     public float getPrevYaw() {
         return entity.prevRotationYaw;
+    }
+
+    public void setPrevYaw(float prevYaw) {
+        entity.prevRotationYaw = prevYaw;
+    }
+
+    public void setPrevPitch(float prevPitch) {
+        entity.prevRotationPitch = prevPitch;
     }
 
     public float getPrevPitch() {

@@ -131,11 +131,6 @@ public class KBDisplacement extends Module {
     }
 
     @Override
-    public String getInfo() {
-        return null;
-    }
-
-    @Override
     public void onEnable() {
         displaceThisTick = false;
         active = false;

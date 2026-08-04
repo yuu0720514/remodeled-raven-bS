@@ -688,6 +688,9 @@ public class CategoryComponent {
             case minigames:
                 itemStack = new ItemStack(Items.gold_ingot);
                 break;
+            case network:
+                itemStack = new ItemStack(Items.comparator);
+                break;
             case fun:
                 itemStack = new ItemStack(Items.slime_ball);
                 break;

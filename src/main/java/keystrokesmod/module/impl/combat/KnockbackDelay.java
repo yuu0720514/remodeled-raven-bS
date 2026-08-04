@@ -8,7 +8,7 @@ import keystrokesmod.lag.api.LagRequest;
 import keystrokesmod.lag.timeout.ModuleBackedTimeout;
 import keystrokesmod.module.Module;
 import keystrokesmod.module.ModuleManager;
-import keystrokesmod.module.impl.player.Blink;
+import keystrokesmod.module.impl.network.Blink;
 import keystrokesmod.module.setting.impl.ButtonSetting;
 import keystrokesmod.module.setting.impl.DescriptionSetting;
 import keystrokesmod.module.setting.impl.ItemListSetting;

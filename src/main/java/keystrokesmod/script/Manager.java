@@ -45,21 +45,7 @@ public class Manager extends Module {
                 final long currentTimeMillis = System.currentTimeMillis();
                 if (Utils.timeBetween(this.lastLoad, currentTimeMillis) > 1500) {
                     this.lastLoad = currentTimeMillis;
-                    Raven.scriptManager.loadScripts();
-                    if (Raven.scriptManager.scripts.isEmpty()) {
-                        Utils.sendMessage("&7No scripts found.");
-                    }
-                    else {
-                        double timeTaken = Utils.round((System.currentTimeMillis() - currentTimeMillis) / 1000.0, 1);
-                        Utils.sendMessage("&7Loaded &b" + Raven.scriptManager.scripts.size() + " &7script" + ((Raven.scriptManager.scripts.size() == 1) ? "" : "s") + " in &b" + Utils.asWholeNum(timeTaken) + "&7s.");
-                    }
-                    Entity.clearCache();
-                    NetworkPlayer.clearCache();
-                    Image.clearCache();
-                    ScriptDefaults.reloadModules();
-                    if (Raven.currentProfile != null && Raven.currentProfile.getModule() != null) {
-                        Raven.currentProfile.getModule().saved = false;
-                    }
+                    this.loadScripts(currentTimeMillis);
                 }
                 else {
                     Utils.sendMessage("&cYou are on cooldown.");
@@ -99,6 +85,24 @@ public class Manager extends Module {
 
     private boolean updateSettingFile() {
         return set("enable-http-requests", String.valueOf(enableHttpRequests.isToggled())) & set("enable-websockets", String.valueOf(enableWebSockets.isToggled()));
+    }
+
+    public void loadScripts(long ms) {
+        Raven.scriptManager.loadScripts();
+        if (Raven.scriptManager.scripts.isEmpty()) {
+            Utils.sendMessage("&7No scripts found.");
+        }
+        else {
+            double timeTaken = Utils.round((System.currentTimeMillis() - ms) / 1000.0, 1);
+            Utils.sendMessage("&7Loaded &b" + Raven.scriptManager.scripts.size() + " &7script" + ((Raven.scriptManager.scripts.size() == 1) ? "" : "s") + " in &b" + Utils.asWholeNum(timeTaken) + "&7s.");
+        }
+        Entity.clearCache();
+        NetworkPlayer.clearCache();
+        Image.clearCache();
+        ScriptDefaults.reloadModules();
+        if (Raven.currentProfile != null && Raven.currentProfile.getModule() != null) {
+            Raven.currentProfile.getModule().saved = false;
+        }
     }
 
     private void ensureConfigFileExists() throws IOException {

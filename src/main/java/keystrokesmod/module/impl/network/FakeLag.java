@@ -1,4 +1,4 @@
-package keystrokesmod.module.impl.player;
+package keystrokesmod.module.impl.network;
 
 import java.util.Set;
 
@@ -26,7 +26,7 @@ public class FakeLag extends Module {
     private @Nullable LagRequest activeLagRequest;
 
     public FakeLag() {
-        super("Fake Lag", category.player, 0);
+        super("Fake Lag", category.network, 0);
         this.registerSetting(mode = new SliderSetting("Mode", 1, MODE_LABELS));
         this.registerSetting(packetDelaySlider = new SliderSetting("Packet delay", "ms", 0.0, 0.0, 1500.0, 1.0));
     }

@@ -407,6 +407,36 @@ public class RotationUtils implements IMinecraftInstance {
         return dSq == Double.MAX_VALUE ? Double.MAX_VALUE : Math.sqrt(dSq);
     }
 
+    public static double distanceFromEyeToClosestOnAABB(Entity entity, Vec3 position) {
+        double dSq = distanceSqFromEyeToClosestOnAABB(entity, position);
+        return dSq == Double.MAX_VALUE ? Double.MAX_VALUE : Math.sqrt(dSq);
+    }
+
+    public static double distanceSqFromEyeToClosestOnAABB(Entity entity, Vec3 position) {
+        if (entity == null || position == null || mc.thePlayer == null) {
+            return Double.MAX_VALUE;
+        }
+
+        Vec3 eye = mc.thePlayer.getPositionEyes(1.0F);
+        float borderSize = entity.getCollisionBorderSize();
+
+        double offsetX = position.xCoord - entity.posX;
+        double offsetY = position.yCoord - entity.posY;
+        double offsetZ = position.zCoord - entity.posZ;
+
+        AxisAlignedBB bb = entity.getEntityBoundingBox()
+                .offset(offsetX, offsetY, offsetZ)
+                .expand(borderSize, borderSize, borderSize);
+
+        Vec3 closest = closestPointOnAabb(bb, eye);
+
+        double dx = eye.xCoord - closest.xCoord;
+        double dy = eye.yCoord - closest.yCoord;
+        double dz = eye.zCoord - closest.zCoord;
+
+        return dx * dx + dy * dy + dz * dz;
+    }
+
     public static boolean canAimAtPoint(Vec3 eye, Vec3 point, Entity target, double range) {
         return canAimAtPoint(eye, point, target, range, false, true);
     }
