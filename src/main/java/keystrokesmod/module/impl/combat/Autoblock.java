@@ -33,45 +33,29 @@ public class Autoblock extends Module {
     private final SliderSetting range;
     private final SliderSetting maxHurtTimeMs;
     private final SliderSetting maxHoldMs;
-
-    /*
-     * 0 = Lag
-     * 1 = Predict
-     */
     private final SliderSetting mode;
-
     private final ButtonSetting requireLmb;
     private final ButtonSetting requireRmb;
     private final ButtonSetting onlyWhenDamaged;
     private final ButtonSetting ignoreTeammates;
-
     private final SliderSetting lagChance;
     private final SliderSetting lagMaxDuration;
     private final ButtonSetting preventDelayAttacks;
     private final ButtonSetting blockAgainImmediately;
     private final ButtonSetting forceBlockAnimation;
-
     private boolean isBlocking;
     private boolean manualBlock;
-
     private int blockStartTick = -1;
-
     private EntityPlayer currentTarget;
-
     private int lastSelfHurtTime;
-
     private boolean isLagging;
     private int lagStartTick = -1;
-
     private LagRequest outboundLag;
-
     private int tickCounter;
-
-    /*
-     * Predict state
-     */
     private int predictBlockTicks = 0;
     private int predictCooldownTicks = 0;
+    private int previousTargetId = -1;
+    private double previousTargetDistance = -1.0D;
 
     private static final int MODE_LAG = 0;
     private static final int MODE_PREDICT = 1;
@@ -88,7 +72,13 @@ public class Autoblock extends Module {
         );
 
         this.registerSetting(
-                range = new SliderSetting("Range", 4.0, 2.0, 6.0, 0.1)
+                range = new SliderSetting(
+                        "Range",
+                        4.0,
+                        2.0,
+                        6.0,
+                        0.1
+                )
         );
 
         this.registerSetting(
@@ -230,12 +220,6 @@ public class Autoblock extends Module {
     }
 
     private int getPredictBlockTicks() {
-        /*
-         * PredictはLagを使わず、
-         * 攻撃を受けた後の短いwindowだけBlockする。
-         *
-         * 最低1tick。
-         */
         int ticks = msToTicks(maxHoldMs.getInput());
 
         if (ticks <= 0) {
@@ -343,10 +327,6 @@ public class Autoblock extends Module {
                 != C02PacketUseEntity.Action.ATTACK) {
             return;
         }
-
-        /*
-         * PredictではLagを一切使わない。
-         */
         if (isPredictMode()) {
             return;
         }
@@ -421,7 +401,7 @@ public class Autoblock extends Module {
                 Mouse.isButtonDown(0)
                         || killAuraAttacking;
 
-        if (!rmbDown) {
+        if (!rmbDown && requireRmb.isToggled()) {
             resetState(true);
             return;
         }
@@ -455,16 +435,6 @@ public class Autoblock extends Module {
                         rmbDown
                 );
 
-        /*
-         * ============================
-         * Predict
-         * ============================
-         *
-         * LagRequestは一切使わない。
-         *
-         * 自分がダメージを受けたtickを検知して
-         * 短時間だけBlockする。
-         */
         if (isPredictMode()) {
 
             if (predictCooldownTicks > 0) {
@@ -473,14 +443,31 @@ public class Autoblock extends Module {
 
             if (!conditionsMet) {
                 stopBlocking(true);
+
                 predictBlockTicks = 0;
+                predictCooldownTicks = 0;
+
+                previousTargetId = -1;
+                previousTargetDistance = -1.0D;
+
                 return;
             }
+            boolean attackPredicted =
+                    shouldPredictAttack(currentTarget);
+            if (hurtAgain) {
 
-            /*
-             * 攻撃を受けた瞬間にBlock開始。
-             */
-            if (hurtAgain
+                if (isBlocking) {
+                    stopBlocking(true);
+                }
+
+                predictBlockTicks = 0;
+                predictCooldownTicks = 2;
+
+                updatePredictTargetState(currentTarget);
+
+                return;
+            }
+            if (attackPredicted
                     && predictCooldownTicks <= 0
                     && !isBlocking) {
 
@@ -488,13 +475,7 @@ public class Autoblock extends Module {
 
                 predictBlockTicks =
                         getPredictBlockTicks();
-
-                predictCooldownTicks = 1;
             }
-
-            /*
-             * Predict Block終了。
-             */
             if (isBlocking
                     && predictBlockTicks > 0) {
 
@@ -504,16 +485,10 @@ public class Autoblock extends Module {
                     stopBlocking(true);
                 }
             }
+            updatePredictTargetState(currentTarget);
 
             return;
         }
-
-        /*
-         * ============================
-         * Original Lag mode
-         * ============================
-         */
-
         if (isLagging) {
 
             int lagMaxTicks =
@@ -595,6 +570,156 @@ public class Autoblock extends Module {
             }
         }
     }
+    private void updatePredictTargetState(EntityPlayer target) {
+        if (target == null) {
+            previousTargetId = -1;
+            previousTargetDistance = -1.0D;
+            return;
+        }
+
+        double distance =
+                target.getDistanceToEntity(mc.thePlayer);
+        if (previousTargetId != target.getEntityId()) {
+            previousTargetId = target.getEntityId();
+            previousTargetDistance = distance;
+            return;
+        }
+        previousTargetDistance = distance;
+    }
+
+    private double getTargetClosingSpeed(EntityPlayer target) {
+        if (target == null) {
+            return 0.0D;
+        }
+
+        double currentDistance =
+                target.getDistanceToEntity(mc.thePlayer);
+
+        if (previousTargetId != target.getEntityId()
+                || previousTargetDistance < 0.0D) {
+            return 0.0D;
+        }
+
+        return previousTargetDistance - currentDistance;
+    }
+
+    private boolean shouldPredictAttack(EntityPlayer target) {
+
+        if (target == null
+                || mc.thePlayer == null) {
+            return false;
+        }
+
+        if (target.isDead
+                || target.getHealth() <= 0.0F) {
+            return false;
+        }
+
+        double distance =
+                target.getDistanceToEntity(mc.thePlayer);
+        if (distance <= 2.75D) {
+            return true;
+        }
+        if (distance > 3.35D) {
+            return false;
+        }
+        if (target.isSwingInProgress
+                && isFacingPlayer(target)) {
+            return true;
+        }
+        double closingSpeed =
+                getTargetClosingSpeed(target);
+        if (distance <= 3.15D
+                && isFacingPlayer(target)
+                && closingSpeed > 0.01D) {
+            return true;
+        }
+        if (target.isSprinting()
+                && distance <= 3.35D
+                && isFacingPlayer(target)
+                && closingSpeed > 0.0D) {
+            return true;
+        }
+
+        return false;
+    }
+    private boolean isFacingPlayer(
+            EntityPlayer target) {
+
+        if (target == null
+                || mc.thePlayer == null) {
+            return false;
+        }
+        double dx =
+                mc.thePlayer.posX - target.posX;
+
+        double dy =
+                (mc.thePlayer.posY
+                        + mc.thePlayer.getEyeHeight())
+                        - (target.posY
+                        + target.getEyeHeight());
+
+        double dz =
+                mc.thePlayer.posZ - target.posZ;
+
+        double horizontalDistance =
+                Math.sqrt(
+                        dx * dx
+                                + dz * dz
+                );
+
+        if (horizontalDistance < 0.001D) {
+            return true;
+        }
+        double targetYaw =
+                Math.toDegrees(
+                        Math.atan2(
+                                -dx,
+                                dz
+                        )
+                );
+
+        double yawDifference =
+                wrapAngleTo180(
+                        target.rotationYaw
+                                - targetYaw
+                );
+
+        if (Math.abs(yawDifference) > 45.0D) {
+            return false;
+        }
+        double targetPitch =
+                Math.toDegrees(
+                        -Math.atan2(
+                                dy,
+                                horizontalDistance
+                        )
+                );
+
+        double pitchDifference =
+                wrapAngleTo180(
+                        target.rotationPitch
+                                - targetPitch
+                );
+
+        return Math.abs(pitchDifference) <= 55.0D;
+    }
+
+    private double wrapAngleTo180(
+            double angle) {
+
+        angle %= 360.0D;
+
+        if (angle >= 180.0D) {
+            angle -= 360.0D;
+        }
+
+        if (angle < -180.0D) {
+            angle += 360.0D;
+        }
+
+        return angle;
+    }
 
     private boolean checkConditions(
             boolean lmbDown,
@@ -642,7 +767,8 @@ public class Autoblock extends Module {
                 && mc.currentScreen == null;
     }
 
-    private void startBlocking(int currentTick) {
+    private void startBlocking(
+            int currentTick) {
 
         if (!Utils.holdingSword()) {
             return;
@@ -688,10 +814,6 @@ public class Autoblock extends Module {
     }
 
     private boolean shouldStartLag() {
-
-        /*
-         * Predictでは絶対にLagしない。
-         */
         if (isPredictMode()) {
             return false;
         }
@@ -797,6 +919,9 @@ public class Autoblock extends Module {
         predictBlockTicks = 0;
         predictCooldownTicks = 0;
 
+        previousTargetId = -1;
+        previousTargetDistance = -1.0D;
+
         if (forceBlockAnimation.isToggled()
                 && wasActive) {
 
@@ -817,16 +942,6 @@ public class Autoblock extends Module {
 
         lastSelfHurtTime = 0;
     }
-
-    /*
-     * ==========================================================
-     * 既存のAutoblock API
-     *
-     * ここは削除しない。
-     * 他のMixin / AutoClicker / NoSlow等から参照される。
-     * ==========================================================
-     */
-
     public boolean shouldSpoofUseItemKey() {
         return isEnabled()
                 && isLagging
@@ -894,4 +1009,3 @@ public class Autoblock extends Module {
                 && isBlocking;
     }
 }
-

@@ -10,6 +10,8 @@ import keystrokesmod.utility.CombatTargeting;
 import keystrokesmod.utility.Utils;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemSword;
 import net.minecraft.potion.Potion;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -37,6 +39,8 @@ public class HitSelect extends Module {
     private final ButtonSetting onlyWhileDamaged;
     private final ButtonSetting useServerAttackTime;
     private final ButtonSetting fakeSwing;
+    private final ButtonSetting weaponsOnly;
+    private final ButtonSetting ignoreTeammates;
     private final SliderSetting inCombatCancelRate;
     private final SliderSetting missedSwingsCancelRate;
 
@@ -63,6 +67,8 @@ public class HitSelect extends Module {
         this.registerSetting(onlyWhileDamaged = new ButtonSetting("Only while damaged", false));
         this.registerSetting(useServerAttackTime = new ButtonSetting("Use server attack time", false));
         this.registerSetting(fakeSwing = new ButtonSetting("Fake swing", false));
+        this.registerSetting(weaponsOnly = new ButtonSetting("Weapons only", false));
+        this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", false));
         this.registerSetting(new DescriptionSetting("Cancel rate"));
         this.registerSetting(inCombatCancelRate = new SliderSetting("In combat", "%", 100.0D, 0.0D, 100.0D, 1.0D));
         this.registerSetting(missedSwingsCancelRate = new SliderSetting("Missed swings", "%", 0.0D, 0.0D, 100.0D, 1.0D));
@@ -99,11 +105,19 @@ public class HitSelect extends Module {
             return;
         }
 
+        if (weaponsOnly.isToggled() && !isHoldingWeapon()) {
+            resetAllState();
+            return;
+        }
+
         tickCounter++;
         int currentTick = tickCounter;
         pruneTargetStates();
 
         EntityPlayer nextTarget = CombatTargeting.findTarget(HIT_RANGE_SQ);
+        if (!isValidHitSelectTarget(nextTarget)) {
+            nextTarget = null;
+        }
         updateCurrentTarget(nextTarget, currentTick);
         updateSelfDamage(currentTick);
         updateTargetDamage(currentTick);
@@ -112,6 +126,9 @@ public class HitSelect extends Module {
     @SubscribeEvent
     public void onPreAttack(PreAttackEvent event) {
         if (!canProcessClicks()) {
+            return;
+        }
+        if (weaponsOnly.isToggled() && !isHoldingWeapon()) {
             return;
         }
 
@@ -130,6 +147,9 @@ public class HitSelect extends Module {
         }
 
         EntityPlayer clickedTarget = CombatTargeting.asValidPlayer(event.objectMouseOver == null ? null : event.objectMouseOver.entityHit, HIT_RANGE_SQ);
+        if (!isValidHitSelectTarget(clickedTarget)) {
+            return;
+        }
         if (clickedTarget == null) {
             return;
         }
@@ -164,10 +184,41 @@ public class HitSelect extends Module {
 
         if (objectMouseOver.typeOfHit == MovingObjectPosition.MovingObjectType.ENTITY) {
             Entity entityHit = objectMouseOver.entityHit;
-            return CombatTargeting.asValidPlayer(entityHit, HIT_RANGE_SQ) != null ? ClickType.VALID_HIT : ClickType.MISSED_SWING;
+            EntityPlayer playerHit = CombatTargeting.asValidPlayer(entityHit, HIT_RANGE_SQ);
+            return isValidHitSelectTarget(playerHit) ? ClickType.VALID_HIT : ClickType.MISSED_SWING;
         }
 
         return ClickType.MISSED_SWING;
+    }
+
+    private boolean isValidHitSelectTarget(EntityPlayer target) {
+        if (target == null) {
+            return false;
+        }
+
+        return !(ignoreTeammates.isToggled() && isTeammate(target));
+    }
+
+    private boolean isHoldingWeapon() {
+        if (mc.thePlayer == null) {
+            return false;
+        }
+
+        ItemStack heldItem = mc.thePlayer.getHeldItem();
+        return heldItem != null && heldItem.getItem() instanceof ItemSword;
+    }
+
+    private boolean isTeammate(EntityPlayer target) {
+        if (mc.thePlayer == null || target == null) {
+            return false;
+        }
+        net.minecraft.scoreboard.Team ownTeam = mc.thePlayer.getTeam();
+        net.minecraft.scoreboard.Team targetTeam = target.getTeam();
+        if (ownTeam == null || targetTeam == null) {
+            return false;
+        }
+        return ownTeam == targetTeam
+                || ownTeam.getRegisteredName().equals(targetTeam.getRegisteredName());
     }
 
     private void cancelClick(PreAttackEvent event) {

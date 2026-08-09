@@ -45,6 +45,7 @@ public class LagRange extends Module {
     private final ColorSetting indicatorColor;
     private final SliderSetting indicatorLineWidth;
     private final ButtonSetting indicatorFilled;
+    private final ButtonSetting ignoreTeammates;
 
     private EntityPlayer currentTarget;
     private double lastDistSq = -1;
@@ -76,6 +77,7 @@ public class LagRange extends Module {
         this.registerSetting(indicatorFilled = new ButtonSetting("Indicator filled", false));
         this.registerSetting(new DescriptionSetting("Conditions"));
         this.registerSetting(holdingWeapon = new ButtonSetting("Holding a weapon", true));
+        this.registerSetting(ignoreTeammates = new ButtonSetting("Ignore teammates", true));
         this.closetModule = true;
     }
 
@@ -117,7 +119,10 @@ public class LagRange extends Module {
         double rangeSq = range.getInput() * range.getInput();
         boolean moving = isMoving();
 
-        EntityPlayer nextTarget = CombatTargeting.findTarget(rangeSq);
+        EntityPlayer nextTarget = CombatTargeting.findTarget(
+                rangeSq,
+                ignoreTeammates.isToggled()
+        );
         if (!sameTarget(nextTarget)) {
             if (isLagging) flushLag();
             lastDistSq = -1;
